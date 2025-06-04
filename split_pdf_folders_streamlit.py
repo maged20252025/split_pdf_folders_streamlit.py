@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 import zipfile
@@ -6,31 +5,33 @@ import shutil
 import tempfile
 from pathlib import Path
 
-st.set_page_config(page_title="📁 تقسيم ملفات PDF إلى مجلدات", layout="centered")
-st.title("📂 تقسيم ملفات PDF إلى مجلدات متعددة")
+st.set_page_config(page_title="📁 تقسيم ملفات PDF أو Word إلى مجلدات", layout="centered")
+st.title("📂 تقسيم ملفات إلى مجلدات متعددة")
 
-uploaded_zip = st.file_uploader("📦 ارفع ملف ZIP يحتوي على ملفات PDF", type="zip")
+uploaded_zip = st.file_uploader("📦 ارفع ملف ZIP يحتوي على ملفات PDF أو Word", type="zip")
+file_type = st.selectbox("📄 اختر نوع الملفات داخل الملف المضغوط", ["PDF", "Word (DOCX)"])
 
-chunk_size = st.number_input("📄 عدد الملفات في كل مجلد", min_value=10, max_value=1000, value=500, step=10)
+chunk_size = st.number_input("📑 عدد الملفات في كل مجلد", min_value=10, max_value=1000, value=500, step=10)
 
 if uploaded_zip:
     with st.spinner("🔄 جاري معالجة الملفات..."):
         temp_dir = tempfile.TemporaryDirectory()
-        zip_path = os.path.join(temp_dir.name, "all_pdfs.zip")
+        zip_path = os.path.join(temp_dir.name, "uploaded_files.zip")
         with open(zip_path, "wb") as f:
             f.write(uploaded_zip.read())
 
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir.name)
 
-        # جلب كل ملفات PDF فقط
-        all_files = [f for f in os.listdir(temp_dir.name) if f.lower().endswith(".pdf")]
+        # تحديد الامتداد بناءً على النوع
+        ext = ".pdf" if file_type == "PDF" else ".docx"
+
+        all_files = [f for f in os.listdir(temp_dir.name) if f.lower().endswith(ext)]
         all_files.sort()
 
         output_dir = os.path.join(temp_dir.name, "مجلدات_مقسمة")
         os.makedirs(output_dir, exist_ok=True)
 
-        # تقسيم الملفات إلى مجلدات فرعية
         for i in range(0, len(all_files), chunk_size):
             chunk = all_files[i:i+chunk_size]
             folder_name = f"دفعة_{(i // chunk_size) + 1}"
@@ -40,7 +41,6 @@ if uploaded_zip:
             for file in chunk:
                 shutil.move(os.path.join(temp_dir.name, file), os.path.join(dest_folder, file))
 
-        # إنشاء ملف ZIP جديد يحوي المجلدات المقسمة
         final_zip_path = os.path.join(temp_dir.name, "ملفات_مقسمة.zip")
         with zipfile.ZipFile(final_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(output_dir):
